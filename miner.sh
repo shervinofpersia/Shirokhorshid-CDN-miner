@@ -393,10 +393,10 @@ python cdn_scanner.py
 if [ -f "shirokhorshid_result.html" ]; then
     echo -e "${ORANGE}[*] Rendering Glassmorphism UI via Localhost...${NC}"
 
-    # ★★★ قسمت اصلاح‌شده ★★★
+    # ★★★ اصلاح بحرانی: اضافه کردن flush برای نوشتن پورت در فایل ★★★
     PORT_FILE=$(mktemp)
     python - << 'SRVEOF' > "$PORT_FILE" 2>&1 &
-import http.server, socketserver, os
+import http.server, socketserver, os, sys
 
 RESULT_FILE = "shirokhorshid_result.html"
 
@@ -416,15 +416,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 with socketserver.TCPServer(("127.0.0.1", 0), Handler) as httpd:
     port = httpd.server_address[1]
-    print(port)   # این خط پورت رو توی فایل موقت می‌نویسه
+    print(port)
+    sys.stdout.flush()   # ← این خط پورت رو فوراً توی فایل می‌نویسه
     httpd.serve_forever()
 SRVEOF
 
     SERVER_PID=$!
-    sleep 0.8
+    sleep 1  # کمی بیشتر صبر می‌کنیم تا پورت آماده بشه
 
-    # خوندن پورت از فایل موقت
-    PORT=$(cat "$PORT_FILE" 2>/dev/null)
+    PORT=$(cat "$PORT_FILE" 2>/dev/null | head -1)  # فقط خط اول (پورت) رو می‌خونیم
     rm -f "$PORT_FILE"
 
     if [ -n "$PORT" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
