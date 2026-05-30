@@ -7,7 +7,7 @@
 
 CYAN='\e[0;36m'
 ORANGE='\e[38;5;208m'
-GREEN='\e[0;32m'
+GREEN='\e[0;32m'          # همچنان تعریف شده اما برای اسکن استفاده نمی‌شود
 DARK_GRAY='\e[1;30m'
 NC='\e[0m'
 BOLD='\e[1m'
@@ -39,7 +39,8 @@ export DEBIAN_FRONTEND=noninteractive
     yes "" | pkg install -y -q termux-api python curl > /dev/null 2>&1
 ) & spinner
 
-echo -e "${GREEN}[✔] System optimized and dependencies are ready.${NC}"
+# تغییر رنگ پیام به آکوا
+echo -e "${CYAN}[✔] System optimized and dependencies are ready.${NC}"
 
 echo -e "${ORANGE}[*] Fetching latest unique payloads from GitHub...${NC}"
 curl -s https://raw.githubusercontent.com/shervinofpersia/Shirokhorshid-CDN-miner/main/ips.txt -o ips.txt
@@ -48,12 +49,14 @@ curl -s https://raw.githubusercontent.com/shervinofpersia/Shirokhorshid-CDN-mine
 if [ -f "ips.txt" ] && [ -s "ips.txt" ] && [ -f "snis.txt" ] && [ -s "snis.txt" ]; then
     IP_COUNT=$(wc -l < ips.txt)
     SNI_COUNT=$(wc -l < snis.txt)
-    echo -e "${GREEN}[✔] Loaded ${IP_COUNT} CIDRs and ${SNI_COUNT} SNIs.${NC}\n"
+    echo -e "${CYAN}[✔] Loaded ${IP_COUNT} CIDRs and ${SNI_COUNT} SNIs.${NC}\n"
 else
     echo -e "${CYAN}[!] Critical Error: Payload sync failed.${NC}"
     exit 1
 fi
 
+# یک فاصله خالی پیش از شروع اسکن برای عدم تداخل خطوط
+echo
 echo -e "${CYAN}[*] Deploying adaptive scanning engine...${NC}"
 
 cat << 'PYEOF' > cdn_scanner.py
@@ -68,15 +71,20 @@ import random
 MAX_TARGETS_PER_CIDR = 64
 MAX_TOTAL_TARGETS = 5000
 
-def print_progress(current, total, found):
+# نمایش نوار پیشرفت و شمارنده آی‌پی‌های پیدا شده در دو خط مجزا
+def print_progress(current, total, found, first=False):
     if total == 0:
         return
     percent = (current / total) * 100
     bar_length = 10
     filled = int(bar_length * current // total)
     bar = '█' * filled + '░' * (bar_length - filled)
-    line = f"  [*] Scan: [{bar}] {percent:.0f}% | Found: {found}"
-    sys.stdout.write('\r\033[K' + line)   # 🔧 اصلاح: پاک‌کردن خط بدون wrap
+    if not first:
+        sys.stdout.write('\033[2A')          # دو خط بالا برو
+    sys.stdout.write('\033[K')               # خط جاری را پاک کن
+    sys.stdout.write(f"\033[36m  [*] Scan: [{bar}] {percent:.0f}% \033[0m\n")
+    sys.stdout.write('\033[K')               # خط بعدی (که خالی است) را پاک کن
+    sys.stdout.write(f"\033[36m  Found: {found} valid IPs\033[0m\n")
     sys.stdout.flush()
 
 def generate_targets(cidr_lines):
@@ -141,7 +149,8 @@ def main():
     completed = 0
     found = 0
 
-    print_progress(0, total, 0)
+    # اولین نمایش (بدون پرش به بالا)
+    print_progress(0, total, 0, first=True)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
         futures = {}
@@ -158,7 +167,10 @@ def main():
                 found += 1
             print_progress(completed, total, found)
 
-    print("\n\n\033[32m [✔] Analysis completed successfully.\033[0m\n")
+    # پایان اسکن: پاک‌سازی دو خط نوار پیشرفت و خط خالی بعدی
+    sys.stdout.write('\033[2A\033[J')
+    # پیام نهایی با رنگ آکوا (آبی)
+    print("\n\033[36m [✔] Analysis completed successfully.\033[0m\n")
 
     ip_str = "\n".join(sorted(clean_ips)) if clean_ips else "No clean IP found. Retry."
     sni_str = "\n".join(sorted(working_snis)) if working_snis else "No valid SNI connection."
@@ -244,17 +256,14 @@ def main():
             direction: ltr; 
             box-shadow: inset 0 4px 10px rgba(0,0,0,0.5);
         }
-        /* آی‌پی‌ها: سبز نئونی */
         #ip-box { 
             color: #39ff14; 
             text-shadow: 0 0 5px rgba(57, 255, 20, 0.3);
         }
-        /* دامنه‌های SNI: آبی آکوا نئونی */
         #sni-box { 
             color: #00f0ff; 
             text-shadow: 0 0 5px rgba(0, 240, 255, 0.3);
         }
-        /* استایل دکمه‌های کپی (تم خاکستری/نارنجی) */
         .btn { 
             background: #1f1f26; 
             border: 1px solid #ff7a00; 
@@ -271,7 +280,6 @@ def main():
             color: #000; 
             box-shadow: 0 0 15px rgba(255,122,0,0.5); 
         }
-        /* استایل دکمه‌های دانلود (نارنجی توپر) */
         .btn-download {
             background: linear-gradient(135deg, #ff7a00, #d96500);
             border: none;
@@ -288,7 +296,6 @@ def main():
             transform: translateY(-2px);
             box-shadow: 0 6px 18px rgba(255,122,0,0.5);
         }
-        /* استایل اسکرول‌بار */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0d0d10; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #ff7a00; border-radius: 10px; }
@@ -346,7 +353,6 @@ def main():
     </footer>
 
     <script>
-        // تابع کپی کردن در کلیپ‌بورد
         function copyToClipboard(id, btn) {
             var text = document.getElementById(id).innerText;
             var tempTextArea = document.createElement("textarea");
@@ -363,7 +369,6 @@ def main():
             }, 1500);
         }
 
-        // تابع دانلود فایل تکست
         function downloadTxt(id, filename) {
             var text = document.getElementById(id).innerText;
             if (text.includes("No clean IP") || text.includes("No valid SNI")) {
@@ -422,14 +427,15 @@ SRVEOF
     SERVER_PID=$!
     sleep 0.5
 
+    HTML_FILE="$PWD/shirokhorshid_result.html"
     termux-open "http://127.0.0.1:8765/shirokhorshid_result.html" 2>/dev/null
 
     if ! kill -0 $SERVER_PID 2>/dev/null; then
         echo -e "${CYAN}[!] Server could not start. Opening directly...${NC}"
-        termux-open --view "file://$(realpath shirokhorshid_result.html)" 2>/dev/null || \
-        echo -e "${CYAN}[!] Please open manually: file://$(realpath shirokhorshid_result.html)${NC}"
+        termux-open --view "file://${HTML_FILE}" 2>/dev/null || \
+        echo -e "${CYAN}[!] Please open manually: file://${HTML_FILE}${NC}"
     else
-        echo -e "${GREEN}[✔] Dashboard opened. Press Ctrl+C to exit server.${NC}"
+        echo -e "${CYAN}[✔] Dashboard opened. Press Ctrl+C to exit server.${NC}"
         wait $SERVER_PID
     fi
 else
