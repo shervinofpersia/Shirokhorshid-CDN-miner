@@ -20,18 +20,18 @@ echo -e "${ORANGE}${BOLD}┃                                             ┃${NC
 echo -e "${ORANGE}${BOLD}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯${NC}"
 echo -e "${DARK_GRAY}Securing environment and checking core infrastructure...${NC}\n"
 
-# اسپینر خطی استاندارد برای نصب پیش‌نیازها
+# اسپینر خطی بهینه‌شده برای ترموکس
 spinner() {
     local pid=$!
     local delay=0.1
     local spinstr='|/-\'
     while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
         local temp=${spinstr#?}
-        printf "\r\033[K ${CYAN}[%c]${NC} Optimizing and installing requirements..." "$spinstr"
+        printf "\r \033[36m[%c]\033[0m Installing requirements...    " "$spinstr"
         local spinstr=$temp${spinstr%"$temp"}
         sleep $delay
     done
-    printf "\r\033[K"
+    printf "\r                                           \r"
 }
 
 export DEBIAN_FRONTEND=noninteractive
@@ -49,16 +49,16 @@ curl -s https://raw.githubusercontent.com/shervinofpersia/Shirokhorshid-CDN-mine
 if [ -f "ips.txt" ] && [ -s "ips.txt" ] && [ -f "snis.txt" ] && [ -s "snis.txt" ]; then
     IP_COUNT=$(wc -l < ips.txt)
     SNI_COUNT=$(wc -l < snis.txt)
-    echo -e "${GREEN}[✔] Loaded ${IP_COUNT} clean CIDR blocks and ${SNI_COUNT} SNI targets.${NC}\n"
+    echo -e "${GREEN}[✔] Loaded ${IP_COUNT} CIDRs and ${SNI_COUNT} SNIs.${NC}\n"
 else
-    echo -e "${CYAN}[!] Critical Error: Payload synchronization failed.${NC}"
+    echo -e "${CYAN}[!] Critical Error: Payload sync failed.${NC}"
     exit 1
 fi
 
-echo -e "${CYAN}[*] Deploying multi-threaded deep scanning engine...${NC}"
+echo -e "${CYAN}[*] Deploying multi-threaded scanning engine...${NC}"
 
 # ---------------------------------------------------------
-# تزریق اسکریپت پایتون (اسکن فوق عمیق و توزیع‌شده)
+# تزریق اسکریپت پایتون (اسکن عمیق)
 # ---------------------------------------------------------
 cat << 'EOF' > cdn_scanner.py
 import socket
@@ -70,11 +70,13 @@ import time
 def print_progress(current, total, found):
     if total == 0: return
     percent = (current / total) * 100
-    bar_length = 25
+    bar_length = 10 # طول نوار کوتاه‌تر شد تا در صفحه موبایل نشکند
     filled = int(bar_length * current // total)
     bar = '█' * filled + '░' * (bar_length - filled)
-    # ساختار \r\033[K پایداری نمایش روی یک خط در ترموکس را تضمین می‌کند
-    sys.stdout.write(f'\r\033[K \033[36m[*] Scanning:\033[0m [\033[38;5;208m{bar}\033[0m] {percent:.1f}% | \033[32mActive IPs Found: {found}\033[0m')
+    
+    # استفاده از کاراکترهای کمتر و فضای خالی برای جلوگیری از باگ لاین جدید در اندروید
+    text = f"\r \033[36m[*] Scan:\033[0m [\033[38;5;208m{bar}\033[0m] {percent:.0f}% | \033[32mFound: {found}\033[0m"
+    sys.stdout.write(text + " " * 10)
     sys.stdout.flush()
 
 def test_target(ip, sni):
@@ -84,7 +86,6 @@ def test_target(ip, sni):
     
     try:
         start_time = time.time()
-        # تلاش برای اتصال سریع به پورت 443 با تایم‌اوت بهینه شده
         with socket.create_connection((ip, 443), timeout=1.8) as sock:
             with context.wrap_socket(sock, server_hostname=sni) as ssock:
                 latency = int((time.time() - start_time) * 1000)
@@ -102,11 +103,10 @@ def main():
         print("Error reading payload data.")
         return
 
-    # اسکن عمیق: استخراج 32 آی‌پی توزیع‌شده از کل فضای هر رنج /24
+    # اسکن عمیق: گام ۸ برای پوشش رنج (حدود ۳۲ آی‌پی از هر ساب‌نت)
     targets = []
     for cidr in cidrs:
         base_ip = ".".join(cidr.split('.')[:3])
-        # بررسی فواصل با گام ۸ برای پوشش کامل رنج (از ۱ تا ۲۴۹)
         for host in range(1, 254, 8): 
             targets.append(f"{base_ip}.{host}")
 
@@ -119,7 +119,7 @@ def main():
 
     print_progress(0, total_tasks, 0)
 
-    # اجرای همزمان روی 100 ترد موازی جهت افزایش سرعت در اسکن‌های پرحجم
+    # اجرای همزمان روی 100 ترد موازی
     with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
         futures = []
         for i, ip in enumerate(targets):
@@ -137,11 +137,10 @@ def main():
                 
             print_progress(completed_tasks, total_tasks, found_count)
 
-    print("\n\n\033[32m [✔] Deep Network Analysis completed successfully.\033[0m\n")
+    print("\n\n\033[32m [✔] Analysis completed successfully.\033[0m\n")
 
-    # آماده‌سازی داده‌های خروجی جهت تزریق به قالب وب
-    ip_str = "\n".join(sorted(list(clean_ips))) if clean_ips else "No clean IP found. Please check network conditions and retry."
-    sni_str = "\n".join(sorted(list(working_snis))) if working_snis else "No valid SNI connection established."
+    ip_str = "\n".join(sorted(list(clean_ips))) if clean_ips else "No clean IP found. Retry."
+    sni_str = "\n".join(sorted(list(working_snis))) if working_snis else "No valid SNI connection."
     
     html_template = """<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -255,13 +254,26 @@ EOF
 # اجرای اسکنر عمیق
 python cdn_scanner.py
 
-# فراخوانی ایمن داشبورد گرافیکی تولید شده و پاکسازی محیط لایه لوکال
+# راه‌اندازی سرور لوکال برای دور زدن محدودیت‌های امنیتی اندروید و نمایش ۱۰۰٪ گرافیکی
 if [ -f "shirokhorshid_result.html" ]; then
-    echo -e "${ORANGE}[*] Launching graphic dashboard...${NC}"
-    termux-open shirokhorshid_result.html
-    echo -e "${GREEN}[✔] Mining process finished successfully.${NC}"
+    echo -e "${ORANGE}[*] Rendering Glassmorphism UI via Localhost...${NC}"
+    
+    # روشن کردن سرور پایتون در پس‌زمینه
+    python -m http.server 8765 > /dev/null 2>&1 &
+    SERVER_PID=$!
+    
+    # باز کردن آدرس سرور به جای فایل مستقیم
+    sleep 1.5
+    termux-open "http://127.0.0.1:8765/shirokhorshid_result.html"
+    
+    echo -e "${GREEN}[✔] Dashboard successfully opened in your browser!${NC}"
+    echo -e "${CYAN}[!] Press [ CTRL + C ] to close the server when you are done.${NC}\n"
+    
+    # باز نگه داشتن اسکریپت تا زمانی که کاربر صفحه وب را می‌بیند
+    wait $SERVER_PID
 else
     echo -e "${CYAN}[!] Error: Web dashboard generation failed.${NC}"
 fi
 
+# این بخش بعد از زدن Ctrl+C اجرا می‌شود تا فایل‌های موقت را پاک کند
 rm -f cdn_scanner.py ips.txt snis.txt
