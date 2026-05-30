@@ -65,8 +65,8 @@ import time
 import ipaddress
 import random
 
-MAX_TARGETS_PER_CIDR = 64   # حداکثر تعداد IP که از هر ساب‌نت اسکن می‌شود
-MAX_TOTAL_TARGETS = 5000     # کل سقف اسکن برای جلوگیری از هنگ کردن
+MAX_TARGETS_PER_CIDR = 64
+MAX_TOTAL_TARGETS = 5000
 
 def print_progress(current, total, found):
     if total == 0:
@@ -76,7 +76,7 @@ def print_progress(current, total, found):
     filled = int(bar_length * current // total)
     bar = '█' * filled + '░' * (bar_length - filled)
     line = f"  [*] Scan: [{bar}] {percent:.0f}% | Found: {found}"
-    sys.stdout.write('\r' + ' ' * 90 + '\r' + line)
+    sys.stdout.write('\r\033[K' + line)   # 🔧 اصلاح: پاک‌کردن خط بدون wrap
     sys.stdout.flush()
 
 def generate_targets(cidr_lines):
@@ -86,31 +86,22 @@ def generate_targets(cidr_lines):
         if not line:
             continue
         try:
-            # اگر خط خودش IP تکی باشد
             if '/' not in line:
                 ip = ipaddress.ip_address(line)
                 targets.append(str(ip))
                 continue
-            # CIDR
             net = ipaddress.ip_network(line, strict=False)
             hosts = list(net.hosts())
             if not hosts:
                 continue
             total_hosts = len(hosts)
-            if total_hosts <= MAX_TARGETS_PER_CIDR:
-                step = 1
-            else:
-                step = max(1, total_hosts // MAX_TARGETS_PER_CIDR)
-            # انتخاب اولین و سپس با گام جلو می‌رویم
+            step = 1 if total_hosts <= MAX_TARGETS_PER_CIDR else max(1, total_hosts // MAX_TARGETS_PER_CIDR)
             chosen = hosts[::step]
-            # اگر خیلی زیاد بود باز هم محدود می‌کنیم
             if len(chosen) > MAX_TARGETS_PER_CIDR:
                 chosen = random.sample(hosts, MAX_TARGETS_PER_CIDR)
             targets.extend([str(ip) for ip in chosen])
-        except Exception:
-            # خط خراب را نادیده می‌گیریم
+        except:
             continue
-    # اگه از سقف کلی بیشتر شد، به صورت تصادفی نمونه برداری کن
     if len(targets) > MAX_TOTAL_TARGETS:
         random.shuffle(targets)
         targets = targets[:MAX_TOTAL_TARGETS]
@@ -304,7 +295,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def log_message(self, format, *args):
-        pass  # suppress logs
+        pass
 
 server = http.server.HTTPServer(("127.0.0.1", 8765), Handler)
 server.serve_forever()
