@@ -401,9 +401,9 @@ python cdn_scanner.py
 if [ -f "shirokhorshid_result.html" ]; then
     echo -e "${ORANGE}[*] Rendering Glassmorphism UI via Localhost...${NC}"
 
-    python - << 'SRVEOF' &
-import http.server
-import os
+    # یک پورت آزاد در Python پیدا می‌کنیم، سرور را روی آن اجرا می‌کنیم و پورت را چاپ می‌کنیم
+    PORT=$(python - << 'SRVEOF' 2>/dev/null
+import http.server, socketserver, os
 
 RESULT_FILE = "shirokhorshid_result.html"
 
@@ -421,22 +421,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-server = http.server.HTTPServer(("127.0.0.1", 8765), Handler)
-server.serve_forever()
+# پیدا کردن پورت آزاد
+with socketserver.TCPServer(("127.0.0.1", 0), Handler) as httpd:
+    port = httpd.server_address[1]
+    print(port)
+    httpd.serve_forever()
 SRVEOF
+    ) &
     SERVER_PID=$!
-    sleep 0.5
+    sleep 0.8
 
-    HTML_FILE="$PWD/shirokhorshid_result.html"
-    termux-open "http://127.0.0.1:8765/shirokhorshid_result.html" 2>/dev/null
-
-    if ! kill -0 $SERVER_PID 2>/dev/null; then
+    if [ -n "$PORT" ] && kill -0 $SERVER_PID 2>/dev/null; then
+        termux-open "http://127.0.0.1:${PORT}/shirokhorshid_result.html" 2>/dev/null
+        echo -e "${CYAN}[✔] Dashboard opened on port ${PORT}. Press Ctrl+C to exit server.${NC}"
+        wait $SERVER_PID
+    else
         echo -e "${CYAN}[!] Server could not start. Opening directly...${NC}"
+        HTML_FILE="$PWD/shirokhorshid_result.html"
         termux-open --view "file://${HTML_FILE}" 2>/dev/null || \
         echo -e "${CYAN}[!] Please open manually: file://${HTML_FILE}${NC}"
-    else
-        echo -e "${CYAN}[✔] Dashboard opened. Press Ctrl+C to exit server.${NC}"
-        wait $SERVER_PID
     fi
 else
     echo -e "${CYAN}[!] HTML dashboard generation failed.${NC}"
