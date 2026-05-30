@@ -7,7 +7,7 @@
 
 CYAN='\e[0;36m'
 ORANGE='\e[38;5;208m'
-GREEN='\e[0;32m'          # همچنان تعریف شده اما برای اسکن استفاده نمی‌شود
+GREEN='\e[0;32m'
 DARK_GRAY='\e[1;30m'
 NC='\e[0m'
 BOLD='\e[1m'
@@ -39,7 +39,6 @@ export DEBIAN_FRONTEND=noninteractive
     yes "" | pkg install -y -q termux-api python curl > /dev/null 2>&1
 ) & spinner
 
-# تغییر رنگ پیام به آکوا
 echo -e "${CYAN}[✔] System optimized and dependencies are ready.${NC}"
 
 echo -e "${ORANGE}[*] Fetching latest unique payloads from GitHub...${NC}"
@@ -55,7 +54,6 @@ else
     exit 1
 fi
 
-# یک فاصله خالی پیش از شروع اسکن برای عدم تداخل خطوط
 echo
 echo -e "${CYAN}[*] Deploying adaptive scanning engine...${NC}"
 
@@ -71,7 +69,6 @@ import random
 MAX_TARGETS_PER_CIDR = 64
 MAX_TOTAL_TARGETS = 5000
 
-# نمایش نوار پیشرفت و شمارنده آی‌پی‌های پیدا شده در دو خط مجزا
 def print_progress(current, total, found, first=False):
     if total == 0:
         return
@@ -80,10 +77,10 @@ def print_progress(current, total, found, first=False):
     filled = int(bar_length * current // total)
     bar = '█' * filled + '░' * (bar_length - filled)
     if not first:
-        sys.stdout.write('\033[2A')          # دو خط بالا برو
-    sys.stdout.write('\033[K')               # خط جاری را پاک کن
+        sys.stdout.write('\033[2A')
+    sys.stdout.write('\033[K')
     sys.stdout.write(f"\033[36m  [*] Scan: [{bar}] {percent:.0f}% \033[0m\n")
-    sys.stdout.write('\033[K')               # خط بعدی (که خالی است) را پاک کن
+    sys.stdout.write('\033[K')
     sys.stdout.write(f"\033[36m  Found: {found} valid IPs\033[0m\n")
     sys.stdout.flush()
 
@@ -149,7 +146,6 @@ def main():
     completed = 0
     found = 0
 
-    # اولین نمایش (بدون پرش به بالا)
     print_progress(0, total, 0, first=True)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
@@ -167,9 +163,7 @@ def main():
                 found += 1
             print_progress(completed, total, found)
 
-    # پایان اسکن: پاک‌سازی دو خط نوار پیشرفت و خط خالی بعدی
     sys.stdout.write('\033[2A\033[J')
-    # پیام نهایی با رنگ آکوا (آبی)
     print("\n\033[36m [✔] Analysis completed successfully.\033[0m\n")
 
     ip_str = "\n".join(sorted(clean_ips)) if clean_ips else "No clean IP found. Retry."
@@ -325,7 +319,6 @@ def main():
         <h1>SHΞNoKHORSHID</h1>
         <div class="subtitle">CLEAN CDN FRONTING TARGETS</div>
 
-        <!-- بخش آی‌پی‌ها -->
         <div class="section-title">
             <span>E2E Pass IPs</span>
             <div class="button-group">
@@ -335,7 +328,6 @@ def main():
         </div>
         <div id="ip-box" class="box">__IP_LIST__</div>
 
-        <!-- بخش SNI‌ها -->
         <div class="section-title">
             <span>Valid SNIs</span>
             <div class="button-group">
@@ -401,8 +393,9 @@ python cdn_scanner.py
 if [ -f "shirokhorshid_result.html" ]; then
     echo -e "${ORANGE}[*] Rendering Glassmorphism UI via Localhost...${NC}"
 
-    # یک پورت آزاد در Python پیدا می‌کنیم، سرور را روی آن اجرا می‌کنیم و پورت را چاپ می‌کنیم
-    PORT=$(python - << 'SRVEOF' 2>/dev/null
+    # ★★★ قسمت اصلاح‌شده ★★★
+    PORT_FILE=$(mktemp)
+    python - << 'SRVEOF' > "$PORT_FILE" 2>&1 &
 import http.server, socketserver, os
 
 RESULT_FILE = "shirokhorshid_result.html"
@@ -421,17 +414,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-# پیدا کردن پورت آزاد
 with socketserver.TCPServer(("127.0.0.1", 0), Handler) as httpd:
     port = httpd.server_address[1]
-    print(port)
+    print(port)   # این خط پورت رو توی فایل موقت می‌نویسه
     httpd.serve_forever()
 SRVEOF
-    ) &
+
     SERVER_PID=$!
     sleep 0.8
 
-    if [ -n "$PORT" ] && kill -0 $SERVER_PID 2>/dev/null; then
+    # خوندن پورت از فایل موقت
+    PORT=$(cat "$PORT_FILE" 2>/dev/null)
+    rm -f "$PORT_FILE"
+
+    if [ -n "$PORT" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
         termux-open "http://127.0.0.1:${PORT}/shirokhorshid_result.html" 2>/dev/null
         echo -e "${CYAN}[✔] Dashboard opened on port ${PORT}. Press Ctrl+C to exit server.${NC}"
         wait $SERVER_PID
