@@ -1,0 +1,1 @@
+# Shirokhorshid-CDN-miner
