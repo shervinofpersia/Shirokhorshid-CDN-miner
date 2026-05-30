@@ -1,9 +1,3 @@
-a248.e.akamai.net
-a77.net.akamai.net
-a104.net.akamai.net
-a184.net.akamai.net
-ds-aksb.akamaized.net
-ak.net.akamaized.net
 akamaihd.net
 a.akamaihd.net
 akamai-staging.net
